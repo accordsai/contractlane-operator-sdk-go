@@ -4,7 +4,9 @@ Go SDK for the Contract Lane Operator API.
 
 ## Install
 ```bash
-go get github.com/contractlane/contractlane-sdk/sdk-go
+go get github.com/acordsai/contractlane-operator-sdk-go
+
+
 ```
 
 ## Quickstart

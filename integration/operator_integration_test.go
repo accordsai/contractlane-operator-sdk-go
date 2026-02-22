@@ -17,7 +17,7 @@ import (
 	"testing"
 	"time"
 
-	operatorsdk "github.com/contractlane/contractlane-sdk/sdk-go"
+	operatorsdk "github.com/acordsai/contractlane-operator-sdk-go"
 )
 
 type flowState struct {
