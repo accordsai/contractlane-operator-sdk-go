@@ -5,8 +5,6 @@ Go SDK for the Contract Lane Operator API.
 ## Install
 ```bash
 go get github.com/acordsai/contractlane-operator-sdk-go
-
-
 ```
 
 ## Quickstart
@@ -76,4 +74,15 @@ _, _ = client.Gateway.CEL.ContractAction(ctx, "ctr_123", "send", map[string]any{
 Run against a live operator stack:
 ```bash
 go test -tags=integration ./integration -v
+```
+
+Strictness controls:
+- `TEST_ADMIN_STRICT_SUCCESS=1`: require admin flow success; otherwise unauthorized admin environments are treated as non-blocking.
+- `TEST_GATEWAY_STRICT_SUCCESS=1`: require gateway create/action/proof success; otherwise `404` is treated as environment limitation.
+
+## Release (standalone public repo)
+For the standalone module `github.com/acordsai/contractlane-operator-sdk-go`, publish using semantic tags:
+```bash
+git tag v0.1.0
+git push origin v0.1.0
 ```
