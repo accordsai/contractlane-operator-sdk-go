@@ -21,6 +21,22 @@ type recordingTransport struct {
 	calls []*http.Request
 }
 
+func decodeCallJSON(t *testing.T, req *http.Request) map[string]any {
+	t.Helper()
+	raw, err := io.ReadAll(req.Body)
+	if err != nil {
+		t.Fatalf("read request body: %v", err)
+	}
+	var payload map[string]any
+	if len(raw) == 0 {
+		return map[string]any{}
+	}
+	if err := json.Unmarshal(raw, &payload); err != nil {
+		t.Fatalf("decode request json: %v", err)
+	}
+	return payload
+}
+
 func (rt *recordingTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	rt.calls = append(rt.calls, req)
 	idx := len(rt.calls) - 1
@@ -151,6 +167,83 @@ func TestGatewayOperatorAuthNoIdempotency(t *testing.T) {
 	}
 }
 
+func TestCreateEnvelopeCanonicalPayload(t *testing.T) {
+	tr := &recordingTransport{steps: []transportStep{{status: 200, body: map[string]any{"request_id": "req_env"}}}}
+	client := newClientForTransport(t, tr, func(o *ClientOptions) { o.OperatorToken = "operator_tok" })
+
+	_, err := client.Gateway.CEL.CreateEnvelope(context.Background(), CreateEnvelopeRequest{
+		TemplateID: "tpl_1",
+		Variables:  map[string]any{"amount": 10},
+		Counterparty: &CreateEnvelopeCounterparty{
+			Email: "info+1@walletsocket.com",
+		},
+	})
+	if err != nil {
+		t.Fatalf("create envelope: %v", err)
+	}
+	payload := decodeCallJSON(t, tr.calls[0])
+	if _, ok := payload["template_id"]; !ok {
+		t.Fatalf("expected template_id in payload")
+	}
+	if _, ok := payload["variables"]; !ok {
+		t.Fatalf("expected variables in payload")
+	}
+	if _, ok := payload["counterparty"]; !ok {
+		t.Fatalf("expected counterparty in payload")
+	}
+	if _, ok := payload["principal_id"]; ok {
+		t.Fatalf("did not expect principal_id in canonical create payload")
+	}
+}
+
+func TestSetCounterpartiesCompatibilityMapsToSingular(t *testing.T) {
+	tr := &recordingTransport{steps: []transportStep{{status: 200, body: map[string]any{"request_id": "req_cp"}}}}
+	client := newClientForTransport(t, tr, func(o *ClientOptions) { o.OperatorToken = "operator_tok" })
+
+	_, err := client.Gateway.CEL.SetCounterparties(context.Background(), "ctr_1", SetCounterpartiesRequest{
+		Counterparties: []map[string]any{
+			{"email": "info+1@walletsocket.com", "role": "SIGNER"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("set counterparties: %v", err)
+	}
+	payload := decodeCallJSON(t, tr.calls[0])
+	if _, ok := payload["counterparty"]; !ok {
+		t.Fatalf("expected compatibility wrapper to send singular counterparty")
+	}
+	if _, ok := payload["counterparties"]; ok {
+		t.Fatalf("did not expect plural counterparties in forwarded payload")
+	}
+}
+
+func TestSetCounterpartyCanonicalFieldsOnly(t *testing.T) {
+	tr := &recordingTransport{steps: []transportStep{{status: 200, body: map[string]any{"request_id": "req_cp2"}}}}
+	client := newClientForTransport(t, tr, func(o *ClientOptions) { o.OperatorToken = "operator_tok" })
+
+	_, err := client.Gateway.CEL.SetCounterparty(context.Background(), "ctr_1", SetCounterpartyRequest{
+		Email: "info+1@walletsocket.com",
+		Name:  "Counterparty",
+	})
+	if err != nil {
+		t.Fatalf("set counterparty: %v", err)
+	}
+	payload := decodeCallJSON(t, tr.calls[0])
+	cp, ok := payload["counterparty"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected counterparty object")
+	}
+	if cp["email"] != "info+1@walletsocket.com" {
+		t.Fatalf("expected canonical email field")
+	}
+	if cp["name"] != "Counterparty" {
+		t.Fatalf("expected canonical name field")
+	}
+	if _, ok := payload["participants"]; ok {
+		t.Fatalf("did not expect participants in payload")
+	}
+}
+
 func TestErrorMapping(t *testing.T) {
 	tr := &recordingTransport{steps: []transportStep{{status: 400, body: map[string]any{"request_id": "req_err", "code": "BAD_REQUEST", "message": "invalid"}}}}
 	client := newClientForTransport(t, tr)
@@ -247,6 +340,32 @@ func TestHistoryListAll(t *testing.T) {
 	}
 	if len(ids) != 2 || ids[0] != "env_1" || ids[1] != "env_2" {
 		t.Fatalf("unexpected ids: %#v", ids)
+	}
+}
+
+func TestHistoryGetNormalizesPendingState(t *testing.T) {
+	tr := &recordingTransport{steps: []transportStep{{status: 200, body: map[string]any{"request_id": "req_hist"}}}}
+	client := newClientForTransport(t, tr, func(o *ClientOptions) { o.SessionToken = "session" })
+
+	res, err := client.Operator.History.Get(context.Background(), "env_pending")
+	if err != nil {
+		t.Fatalf("history get: %v", err)
+	}
+	history, ok := res.Data["history"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected normalized history object")
+	}
+	if history["envelope_id"] != "env_pending" {
+		t.Fatalf("unexpected envelope_id: %#v", history["envelope_id"])
+	}
+	if history["status"] != "PENDING" {
+		t.Fatalf("unexpected status: %#v", history["status"])
+	}
+}
+
+func TestKnownErrorCodeConstant(t *testing.T) {
+	if string(ErrTemplateNotEnabledForProject) != "TEMPLATE_NOT_ENABLED_FOR_PROJECT" {
+		t.Fatalf("unexpected known error code constant value")
 	}
 }
 

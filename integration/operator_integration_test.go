@@ -252,6 +252,18 @@ func TestOperatorSDKIntegrationFlows(t *testing.T) {
 		if strings.TrimSpace(orgID) == "" {
 			t.Fatalf("missing org_id")
 		}
+		if state.adminAuth == "session" {
+			switched, err := client.Public.Auth.SwitchOrg(ctx, operatorsdk.SwitchOrgRequest{OrgID: orgID})
+			if err != nil {
+				t.Fatalf("switch org for admin flow: %v", err)
+			}
+			if switchedSession, ok := switched.Data["session"].(map[string]any); ok {
+				if switchedToken, _ := switchedSession["token"].(string); strings.TrimSpace(switchedToken) != "" {
+					state.sessionToken = switchedToken
+					client = newClient(t, baseURL, func(o *operatorsdk.ClientOptions) { o.SessionToken = state.sessionToken })
+				}
+			}
+		}
 		var orgScopedOpt operatorsdk.RequestOption = func(o *operatorsdk.RequestOptions) {}
 		if state.adminAuth == "bootstrap" {
 			orgScopedOpt = operatorsdk.WithHeaders(map[string]string{

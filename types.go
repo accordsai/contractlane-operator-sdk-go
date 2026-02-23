@@ -57,6 +57,16 @@ func (e *APIError) Error() string {
 	return msg
 }
 
+type KnownErrorCode string
+
+const (
+	ErrTemplateNotEnabledForProject KnownErrorCode = "TEMPLATE_NOT_ENABLED_FOR_PROJECT"
+	ErrBadJSON                      KnownErrorCode = "BAD_JSON"
+	ErrUpstreamError                KnownErrorCode = "UPSTREAM_ERROR"
+	ErrNotFound                     KnownErrorCode = "NOT_FOUND"
+	ErrUnknownError                 KnownErrorCode = "UNKNOWN_ERROR"
+)
+
 type TokenProvider func(ctx context.Context) (string, error)
 
 type ChallengeHeaderInput struct {
@@ -344,6 +354,29 @@ type TemplateShareRequest struct {
 type TemplateEnableRequest struct {
 	EnabledByActorID string            `json:"enabled_by_actor_id,omitempty"`
 	OverrideGates    map[string]string `json:"override_gates,omitempty"`
+}
+
+type CreateEnvelopeCounterparty struct {
+	Name  string `json:"name,omitempty"`
+	Email string `json:"email,omitempty"`
+}
+
+type CreateEnvelopeRequest struct {
+	TemplateID   string                      `json:"template_id"`
+	Variables    map[string]any              `json:"variables,omitempty"`
+	Counterparty *CreateEnvelopeCounterparty `json:"counterparty,omitempty"`
+}
+
+type SetCounterpartyRequest struct {
+	Name  string `json:"name,omitempty"`
+	Email string `json:"email,omitempty"`
+}
+
+// Deprecated: use SetCounterpartyRequest with Gateway.CEL.SetCounterparty.
+type SetCounterpartiesRequest struct {
+	Counterparties []map[string]any `json:"counterparties,omitempty"`
+	Participants   []map[string]any `json:"participants,omitempty"`
+	Policy         map[string]any   `json:"policy,omitempty"`
 }
 
 func itoa(v int) string {

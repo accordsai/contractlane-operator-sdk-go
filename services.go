@@ -302,7 +302,18 @@ func (s *OperatorHistoryService) List(ctx context.Context, query HistoryListQuer
 }
 
 func (s *OperatorHistoryService) Get(ctx context.Context, envelopeID string, opts ...RequestOption) (*Result[JSONMap], error) {
-	return s.c.request(ctx, requestSpec{Method: http.MethodGet, Path: "/operator/v1/history/" + urlEscape(envelopeID), Auth: AuthModeSession, Retryable: true}, nil, nil, opts...)
+	res, err := s.c.request(ctx, requestSpec{Method: http.MethodGet, Path: "/operator/v1/history/" + urlEscape(envelopeID), Auth: AuthModeSession, Retryable: true}, nil, nil, opts...)
+	if err != nil {
+		return nil, err
+	}
+	if _, ok := res.Data["history"]; !ok {
+		res.Data["history"] = map[string]any{
+			"envelope_id": envelopeID,
+			"status":      "PENDING",
+			"events":      []any{},
+		}
+	}
+	return res, nil
 }
 
 func (s *OperatorHistoryService) CreateShareToken(ctx context.Context, envelopeID string, req HistoryShareTokenCreateRequest, opts ...RequestOption) (*Result[JSONMap], error) {
@@ -465,8 +476,68 @@ func (s *GatewayCELService) CreateContract(ctx context.Context, req map[string]a
 	return s.c.request(ctx, requestSpec{Method: http.MethodPost, Path: "/gateway/v1/cel/contracts", Auth: AuthModeOperator, Retryable: false}, nil, req, opts...)
 }
 
+func (s *GatewayCELService) CreateEnvelope(ctx context.Context, req CreateEnvelopeRequest, opts ...RequestOption) (*Result[JSONMap], error) {
+	safe := map[string]any{
+		"template_id": req.TemplateID,
+	}
+	if req.Variables != nil {
+		safe["variables"] = req.Variables
+	}
+	if req.Counterparty != nil {
+		counterparty := map[string]any{}
+		if strings.TrimSpace(req.Counterparty.Email) != "" {
+			counterparty["email"] = req.Counterparty.Email
+		}
+		if strings.TrimSpace(req.Counterparty.Name) != "" {
+			counterparty["name"] = req.Counterparty.Name
+		}
+		safe["counterparty"] = counterparty
+	}
+	return s.CreateContract(ctx, safe, opts...)
+}
+
 func (s *GatewayCELService) ContractAction(ctx context.Context, contractID, action string, req map[string]any, opts ...RequestOption) (*Result[JSONMap], error) {
 	return s.c.request(ctx, requestSpec{Method: http.MethodPost, Path: "/gateway/v1/cel/contracts/" + urlEscape(contractID) + "/actions/" + urlEscape(action), Auth: AuthModeOperator, Retryable: false}, nil, req, opts...)
+}
+
+func (s *GatewayCELService) AdvancedAction(ctx context.Context, contractID, action string, req map[string]any, opts ...RequestOption) (*Result[JSONMap], error) {
+	return s.ContractAction(ctx, contractID, action, req, opts...)
+}
+
+func (s *GatewayCELService) SetCounterparty(ctx context.Context, contractID string, req SetCounterpartyRequest, opts ...RequestOption) (*Result[JSONMap], error) {
+	counterparty := map[string]any{}
+	if strings.TrimSpace(req.Email) != "" {
+		counterparty["email"] = req.Email
+	}
+	if strings.TrimSpace(req.Name) != "" {
+		counterparty["name"] = req.Name
+	}
+	return s.ContractAction(ctx, contractID, "counterparties", map[string]any{"counterparty": counterparty}, opts...)
+}
+
+// Deprecated: use SetCounterparty for canonical singular counterparty action payloads.
+func (s *GatewayCELService) SetCounterparties(ctx context.Context, contractID string, req SetCounterpartiesRequest, opts ...RequestOption) (*Result[JSONMap], error) {
+	first := map[string]any{}
+	if len(req.Counterparties) > 0 {
+		first = req.Counterparties[0]
+	} else if len(req.Participants) > 0 {
+		first = req.Participants[0]
+	} else if req.Policy != nil {
+		if stages, ok := req.Policy["stages"].([]any); ok && len(stages) > 0 {
+			if stage0, ok := stages[0].(map[string]any); ok {
+				if participants, ok := stage0["participants"].([]any); ok && len(participants) > 0 {
+					if p0, ok := participants[0].(map[string]any); ok {
+						first = p0
+					}
+				}
+			}
+		}
+	}
+	body := map[string]any{}
+	if len(first) > 0 {
+		body["counterparty"] = first
+	}
+	return s.ContractAction(ctx, contractID, "counterparties", body, opts...)
 }
 
 func (s *GatewayCELService) DecideApproval(ctx context.Context, approvalRequestID string, req map[string]any, opts ...RequestOption) (*Result[JSONMap], error) {

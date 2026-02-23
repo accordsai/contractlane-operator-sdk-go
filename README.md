@@ -4,7 +4,7 @@ Go SDK for the Contract Lane Operator API.
 
 ## Install
 ```bash
-go get github.com/contractlane/contractlane-sdk/sdk-go
+go get github.com/acordsai/contractlane-operator-sdk-go
 ```
 
 ## Quickstart
@@ -58,10 +58,19 @@ _, _ = client.Public.AgentEnrollment.Start(ctx, operatorsdk.AgentEnrollStartRequ
 })
 ```
 
-### 4) Gateway contract action
+### 4) Gateway contract + counterparty action
 ```go
-_, _ = client.Gateway.CEL.CreateContract(ctx, map[string]any{"template_id": "tpl_123", "payload": map[string]any{}})
-_, _ = client.Gateway.CEL.ContractAction(ctx, "ctr_123", "send", map[string]any{"note": "go"})
+_, _ = client.Gateway.CEL.CreateEnvelope(ctx, operatorsdk.CreateEnvelopeRequest{
+    TemplateID: "tpl_123",
+    Variables: map[string]any{"amount": "100.00"},
+    Counterparty: &operatorsdk.CreateEnvelopeCounterparty{
+        Email: "counterparty@example.com",
+    },
+})
+_, _ = client.Gateway.CEL.SetCounterparty(ctx, "ctr_123", operatorsdk.SetCounterpartyRequest{
+    Email: "counterparty@example.com",
+})
+_, _ = client.Gateway.CEL.AdvancedAction(ctx, "ctr_123", "SEND_FOR_SIGNATURE", map[string]any{})
 ```
 
 ### 5) Public signing + actor key lifecycle
@@ -84,11 +93,11 @@ _, _ = client.Operator.Admin.ListActorsCompat(ctx, "prj_123")
 - `request_id` is in `result.Meta.RequestID`.
 - Challenge hooks can provide `X-Signup-Challenge`, `X-Operator-Challenge`, and `X-Operator-Challenge-Token`; per-request headers can override hook values.
 - Failures return `*APIError` with status/code/message/request_id/meta/raw_body.
+- Template enable accepts optional `enabled_by_actor_id`; if provided it must be an active actor id in the project.
+- `Operator.History.Get(envelopeID)` normalizes missing history records to a pending shape.
+- Prefer `Gateway.CEL.SetCounterparty()` over deprecated plural/staged compatibility wrapper `SetCounterparties()`.
 
-## API Coverage
-- Public: signup/auth/session, invites/shared-history, agent enrollment, signing (`/public/v1/signing/*`)
-- Operator: org/project/actor admin, actor key lifecycle, scope/credentials, memberships/invites, history/share-tokens, security/abuse, templates
-- Gateway: CEL convenience wrappers for create/action/approval/proof-bundle
+See `SDK_BEHAVIOR_MATRIX.md` for canonical/deprecated method parity and backend-behavior notes.
 
 ## Integration Tests
 Run against a live operator stack:
@@ -101,8 +110,8 @@ Strictness controls:
 - `TEST_GATEWAY_STRICT_SUCCESS=1`: require gateway create/action/proof success; otherwise `404` is treated as environment limitation.
 
 ## Release (standalone public repo)
-Publish this module with semantic tags:
+For the standalone module `github.com/acordsai/contractlane-operator-sdk-go`, publish using semantic tags:
 ```bash
-git tag v0.1.1
-git push origin v0.1.1
+git tag v0.1.0
+git push origin v0.1.0
 ```
