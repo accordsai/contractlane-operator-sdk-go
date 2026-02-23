@@ -252,7 +252,7 @@ func TestHistoryListAll(t *testing.T) {
 
 func TestGroupCoverageSmoke(t *testing.T) {
 	steps := []transportStep{}
-	for i := 0; i < 10; i++ {
+	for i := 0; i < 12; i++ {
 		steps = append(steps, transportStep{status: 200, body: map[string]any{"request_id": "req" + itoa(i)}})
 	}
 	tr := &recordingTransport{steps: steps}
@@ -268,10 +268,13 @@ func TestGroupCoverageSmoke(t *testing.T) {
 	_, _ = client.Operator.Templates.List(context.Background(), ListTemplatesQuery{})
 	_, _ = client.Operator.History.Get(context.Background(), "env_1")
 	_, _ = client.Public.SharedHistory.Get(context.Background(), "share_tok")
+	_, _ = client.Public.Signing.Resolve(context.Background(), "sgn_tok")
+	_, _ = client.Operator.Admin.ListActorsCompat(context.Background(), "prj_1")
+	_, _ = client.Operator.ActorKeys.List(context.Background(), "act_1")
 	_, _ = client.Gateway.CEL.ProofBundle(context.Background(), "ctr_1")
 	_, _ = client.Public.Auth.Sessions(context.Background())
 
-	if len(tr.calls) != 9 {
-		t.Fatalf("expected 9 calls, got %d", len(tr.calls))
+	if len(tr.calls) != 12 {
+		t.Fatalf("expected 12 calls, got %d", len(tr.calls))
 	}
 }

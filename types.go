@@ -203,6 +203,18 @@ type InviteAcceptRequest struct {
 	Email       string `json:"email"`
 }
 
+type SigningAcceptRequest struct {
+	ChallengeID                string         `json:"challenge_id"`
+	Signature                  string         `json:"signature"`
+	SignerPublicKeyJWK         map[string]any `json:"signer_public_key_jwk,omitempty"`
+	SignerPublicKeyFingerprint string         `json:"signer_public_key_fingerprint,omitempty"`
+	Metadata                   map[string]any `json:"metadata,omitempty"`
+}
+
+type SigningRejectRequest struct {
+	Reason string `json:"reason,omitempty"`
+}
+
 type CreateOrgRequest struct {
 	Name       string `json:"name"`
 	AdminEmail string `json:"admin_email"`
@@ -217,6 +229,22 @@ type CreateProjectRequest struct {
 type CreateActorRequest struct {
 	Name   string   `json:"name"`
 	Scopes []string `json:"scopes,omitempty"`
+}
+
+type ActorKeyChallengeRequest struct {
+	PublicKeyJWK         map[string]any `json:"public_key_jwk"`
+	PublicKeyFingerprint string         `json:"public_key_fingerprint,omitempty"`
+}
+
+type ActorKeyRegisterRequest struct {
+	ChallengeID  string         `json:"challenge_id"`
+	Signature    string         `json:"signature"`
+	PublicKeyJWK map[string]any `json:"public_key_jwk"`
+	Label        string         `json:"label,omitempty"`
+}
+
+type ActorKeyRevokeRequest struct {
+	Reason string `json:"reason,omitempty"`
 }
 
 type ScopePolicyUpsertRequest struct {

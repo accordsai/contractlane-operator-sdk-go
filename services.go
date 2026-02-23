@@ -12,10 +12,12 @@ type PublicClient struct {
 	AgentEnrollment *PublicAgentEnrollmentService
 	Invites         *PublicInvitesService
 	SharedHistory   *PublicSharedHistoryService
+	Signing         *PublicSigningService
 }
 
 type OperatorClient struct {
 	Admin     *OperatorAdminService
+	ActorKeys *OperatorActorKeysService
 	History   *OperatorHistoryService
 	Security  *OperatorSecurityService
 	Templates *OperatorTemplatesService
@@ -30,8 +32,10 @@ type PublicAuthService struct{ c *Client }
 type PublicAgentEnrollmentService struct{ c *Client }
 type PublicInvitesService struct{ c *Client }
 type PublicSharedHistoryService struct{ c *Client }
+type PublicSigningService struct{ c *Client }
 
 type OperatorAdminService struct{ c *Client }
+type OperatorActorKeysService struct{ c *Client }
 type OperatorHistoryService struct{ c *Client }
 type OperatorSecurityService struct{ c *Client }
 type OperatorTemplatesService struct{ c *Client }
@@ -45,12 +49,14 @@ func newPublicClient(c *Client) *PublicClient {
 		AgentEnrollment: &PublicAgentEnrollmentService{c: c},
 		Invites:         &PublicInvitesService{c: c},
 		SharedHistory:   &PublicSharedHistoryService{c: c},
+		Signing:         &PublicSigningService{c: c},
 	}
 }
 
 func newOperatorClient(c *Client) *OperatorClient {
 	return &OperatorClient{
 		Admin:     &OperatorAdminService{c: c},
+		ActorKeys: &OperatorActorKeysService{c: c},
 		History:   &OperatorHistoryService{c: c},
 		Security:  &OperatorSecurityService{c: c},
 		Templates: &OperatorTemplatesService{c: c},
@@ -149,6 +155,18 @@ func (s *PublicSharedHistoryService) Get(ctx context.Context, token string, opts
 	return s.c.request(ctx, requestSpec{Method: http.MethodGet, Path: "/public/v1/shared-history/" + urlEscape(token), Auth: AuthModeNone, Retryable: true}, nil, nil, opts...)
 }
 
+func (s *PublicSigningService) Resolve(ctx context.Context, token string, opts ...RequestOption) (*Result[JSONMap], error) {
+	return s.c.request(ctx, requestSpec{Method: http.MethodGet, Path: "/public/v1/signing/" + urlEscape(token), Auth: AuthModeNone, Retryable: true}, nil, nil, opts...)
+}
+
+func (s *PublicSigningService) Accept(ctx context.Context, token string, req SigningAcceptRequest, opts ...RequestOption) (*Result[JSONMap], error) {
+	return s.c.request(ctx, requestSpec{Method: http.MethodPost, Path: "/public/v1/signing/" + urlEscape(token) + "/accept", Auth: AuthModeNone, Idempotent: true, Challenge: true, Retryable: true}, nil, req, opts...)
+}
+
+func (s *PublicSigningService) Reject(ctx context.Context, token string, req SigningRejectRequest, opts ...RequestOption) (*Result[JSONMap], error) {
+	return s.c.request(ctx, requestSpec{Method: http.MethodPost, Path: "/public/v1/signing/" + urlEscape(token) + "/reject", Auth: AuthModeNone, Idempotent: true, Challenge: true, Retryable: true}, nil, req, opts...)
+}
+
 // Operator admin
 
 func (s *OperatorAdminService) CreateOrg(ctx context.Context, req CreateOrgRequest, opts ...RequestOption) (*Result[JSONMap], error) {
@@ -167,8 +185,32 @@ func (s *OperatorAdminService) ListActors(ctx context.Context, projectID string,
 	return s.c.request(ctx, requestSpec{Method: http.MethodGet, Path: "/operator/v1/projects/" + urlEscape(projectID) + "/actors", Auth: AuthModeSession, Retryable: true}, nil, nil, opts...)
 }
 
+func (s *OperatorAdminService) ListActorsCompat(ctx context.Context, projectID string, opts ...RequestOption) (*Result[JSONMap], error) {
+	q := map[string]string{}
+	if strings.TrimSpace(projectID) != "" {
+		q["project_id"] = projectID
+	}
+	return s.c.request(ctx, requestSpec{Method: http.MethodGet, Path: "/operator/v1/actors", Auth: AuthModeSession, Retryable: true}, q, nil, opts...)
+}
+
 func (s *OperatorAdminService) DisableActor(ctx context.Context, actorID string, opts ...RequestOption) (*Result[JSONMap], error) {
 	return s.c.request(ctx, requestSpec{Method: http.MethodPost, Path: "/operator/v1/actors/" + urlEscape(actorID) + ":disable", Auth: AuthModeSession, Idempotent: true, Retryable: true}, nil, nil, opts...)
+}
+
+func (s *OperatorActorKeysService) Challenge(ctx context.Context, actorID string, req ActorKeyChallengeRequest, opts ...RequestOption) (*Result[JSONMap], error) {
+	return s.c.request(ctx, requestSpec{Method: http.MethodPost, Path: "/operator/v1/actors/" + urlEscape(actorID) + "/keys/challenge", Auth: AuthModeSession, Idempotent: true, Retryable: true}, nil, req, opts...)
+}
+
+func (s *OperatorActorKeysService) Register(ctx context.Context, actorID string, req ActorKeyRegisterRequest, opts ...RequestOption) (*Result[JSONMap], error) {
+	return s.c.request(ctx, requestSpec{Method: http.MethodPost, Path: "/operator/v1/actors/" + urlEscape(actorID) + "/keys", Auth: AuthModeSession, Idempotent: true, Retryable: true}, nil, req, opts...)
+}
+
+func (s *OperatorActorKeysService) List(ctx context.Context, actorID string, opts ...RequestOption) (*Result[JSONMap], error) {
+	return s.c.request(ctx, requestSpec{Method: http.MethodGet, Path: "/operator/v1/actors/" + urlEscape(actorID) + "/keys", Auth: AuthModeSession, Retryable: true}, nil, nil, opts...)
+}
+
+func (s *OperatorActorKeysService) Revoke(ctx context.Context, actorID, fingerprint string, req ActorKeyRevokeRequest, opts ...RequestOption) (*Result[JSONMap], error) {
+	return s.c.request(ctx, requestSpec{Method: http.MethodPost, Path: "/operator/v1/actors/" + urlEscape(actorID) + "/keys/" + urlEscape(fingerprint) + ":revoke", Auth: AuthModeSession, Idempotent: true, Retryable: true}, nil, req, opts...)
 }
 
 func (s *OperatorAdminService) UpsertScopePolicy(ctx context.Context, principalID string, req ScopePolicyUpsertRequest, opts ...RequestOption) (*Result[JSONMap], error) {

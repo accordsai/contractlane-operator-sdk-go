@@ -64,6 +64,21 @@ _, _ = client.Gateway.CEL.CreateContract(ctx, map[string]any{"template_id": "tpl
 _, _ = client.Gateway.CEL.ContractAction(ctx, "ctr_123", "send", map[string]any{"note": "go"})
 ```
 
+### 5) Public signing + actor key lifecycle
+```go
+_, _ = client.Public.Signing.Resolve(ctx, "sign_tok")
+_, _ = client.Public.Signing.Accept(ctx, "sign_tok", operatorsdk.SigningAcceptRequest{
+    ChallengeID: "chal_123",
+    Signature:   "base64url-signature",
+})
+
+_, _ = client.Operator.ActorKeys.Challenge(ctx, "act_123", operatorsdk.ActorKeyChallengeRequest{
+    PublicKeyJWK: map[string]any{"kty": "OKP", "crv": "Ed25519", "x": "..."},
+})
+_, _ = client.Operator.ActorKeys.List(ctx, "act_123")
+_, _ = client.Operator.Admin.ListActorsCompat(ctx, "prj_123")
+```
+
 ## Notes
 - Mutating operator/public endpoints auto-inject `Idempotency-Key`.
 - `request_id` is in `result.Meta.RequestID`.

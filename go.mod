@@ -1,3 +1,3 @@
-module github.com/acordsai/contractlane-operator-sdk-go
+module github.com/contractlane/contractlane-sdk/sdk-go
 
 go 1.22.0
