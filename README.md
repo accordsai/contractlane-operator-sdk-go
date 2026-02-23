@@ -4,7 +4,7 @@ Go SDK for the Contract Lane Operator API.
 
 ## Install
 ```bash
-go get github.com/acordsai/contractlane-operator-sdk-go
+go get github.com/contractlane/contractlane-sdk/sdk-go
 ```
 
 ## Quickstart
@@ -85,6 +85,11 @@ _, _ = client.Operator.Admin.ListActorsCompat(ctx, "prj_123")
 - Challenge hooks can provide `X-Signup-Challenge`, `X-Operator-Challenge`, and `X-Operator-Challenge-Token`; per-request headers can override hook values.
 - Failures return `*APIError` with status/code/message/request_id/meta/raw_body.
 
+## API Coverage
+- Public: signup/auth/session, invites/shared-history, agent enrollment, signing (`/public/v1/signing/*`)
+- Operator: org/project/actor admin, actor key lifecycle, scope/credentials, memberships/invites, history/share-tokens, security/abuse, templates
+- Gateway: CEL convenience wrappers for create/action/approval/proof-bundle
+
 ## Integration Tests
 Run against a live operator stack:
 ```bash
@@ -96,8 +101,8 @@ Strictness controls:
 - `TEST_GATEWAY_STRICT_SUCCESS=1`: require gateway create/action/proof success; otherwise `404` is treated as environment limitation.
 
 ## Release (standalone public repo)
-For the standalone module `github.com/acordsai/contractlane-operator-sdk-go`, publish using semantic tags:
+Publish this module with semantic tags:
 ```bash
-git tag v0.1.0
-git push origin v0.1.0
+git tag v0.1.1
+git push origin v0.1.1
 ```
