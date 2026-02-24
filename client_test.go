@@ -367,11 +367,77 @@ func TestKnownErrorCodeConstant(t *testing.T) {
 	if string(ErrTemplateNotEnabledForProject) != "TEMPLATE_NOT_ENABLED_FOR_PROJECT" {
 		t.Fatalf("unexpected known error code constant value")
 	}
+	if string(ErrEnvelopeNotFound) != "ENVELOPE_NOT_FOUND" {
+		t.Fatalf("unexpected envelope known error code constant value")
+	}
+	if string(ErrBadPageToken) != "BAD_PAGE_TOKEN" {
+		t.Fatalf("unexpected bad page token code constant value")
+	}
+	if string(ErrBadSortField) != "BAD_SORT_FIELD" {
+		t.Fatalf("unexpected bad sort field code constant value")
+	}
+	if string(ErrForbidden) != "FORBIDDEN" {
+		t.Fatalf("unexpected forbidden code constant value")
+	}
+}
+
+func TestEnvelopesListQueryEncoding(t *testing.T) {
+	tr := &recordingTransport{steps: []transportStep{
+		{status: 200, body: map[string]any{"request_id": "req_env_list", "items": []any{}}},
+	}}
+	client := newClientForTransport(t, tr, func(o *ClientOptions) { o.SessionToken = "session" })
+	includeTerminal := true
+	_, err := client.Operator.Envelopes.List(context.Background(), EnvelopeListQuery{
+		ProjectID:       "prj_1",
+		IncludeTerminal: &includeTerminal,
+		SortBy:          "updated_at",
+		SortOrder:       "desc",
+		PageSize:        10,
+		PageToken:       "tok_1",
+	})
+	if err != nil {
+		t.Fatalf("envelopes list: %v", err)
+	}
+	if len(tr.calls) != 1 {
+		t.Fatalf("expected one call, got %d", len(tr.calls))
+	}
+	url := tr.calls[0].URL.String()
+	if !strings.Contains(url, "/operator/v1/envelopes?") {
+		t.Fatalf("expected envelopes path, got %s", url)
+	}
+	if !strings.Contains(url, "include_terminal=true") {
+		t.Fatalf("expected include_terminal in query, got %s", url)
+	}
+	if !strings.Contains(url, "sort_by=updated_at") {
+		t.Fatalf("expected sort_by in query, got %s", url)
+	}
+}
+
+func TestEnvelopesGetPaths(t *testing.T) {
+	tr := &recordingTransport{steps: []transportStep{
+		{status: 200, body: map[string]any{"request_id": "req_ctr", "envelope": map[string]any{"contract_id": "ctr_1"}}},
+		{status: 200, body: map[string]any{"request_id": "req_env", "envelope": map[string]any{"envelope_id": "env_1"}}},
+	}}
+	client := newClientForTransport(t, tr, func(o *ClientOptions) { o.SessionToken = "session" })
+	_, err := client.Operator.Envelopes.Get(context.Background(), "ctr_1")
+	if err != nil {
+		t.Fatalf("get by contract: %v", err)
+	}
+	_, err = client.Operator.Envelopes.GetByEnvelopeID(context.Background(), "env_1")
+	if err != nil {
+		t.Fatalf("get by envelope id: %v", err)
+	}
+	if !strings.Contains(tr.calls[0].URL.Path, "/operator/v1/envelopes/ctr_1") {
+		t.Fatalf("unexpected first path: %s", tr.calls[0].URL.Path)
+	}
+	if !strings.Contains(tr.calls[1].URL.Path, "/operator/v1/envelopes/by-envelope/env_1") {
+		t.Fatalf("unexpected second path: %s", tr.calls[1].URL.Path)
+	}
 }
 
 func TestGroupCoverageSmoke(t *testing.T) {
 	steps := []transportStep{}
-	for i := 0; i < 12; i++ {
+	for i := 0; i < 13; i++ {
 		steps = append(steps, transportStep{status: 200, body: map[string]any{"request_id": "req" + itoa(i)}})
 	}
 	tr := &recordingTransport{steps: steps}
@@ -390,10 +456,11 @@ func TestGroupCoverageSmoke(t *testing.T) {
 	_, _ = client.Public.Signing.Resolve(context.Background(), "sgn_tok")
 	_, _ = client.Operator.Admin.ListActorsCompat(context.Background(), "prj_1")
 	_, _ = client.Operator.ActorKeys.List(context.Background(), "act_1")
+	_, _ = client.Operator.Envelopes.List(context.Background(), EnvelopeListQuery{})
 	_, _ = client.Gateway.CEL.ProofBundle(context.Background(), "ctr_1")
 	_, _ = client.Public.Auth.Sessions(context.Background())
 
-	if len(tr.calls) != 12 {
-		t.Fatalf("expected 12 calls, got %d", len(tr.calls))
+	if len(tr.calls) != 13 {
+		t.Fatalf("expected 13 calls, got %d", len(tr.calls))
 	}
 }

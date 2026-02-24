@@ -18,6 +18,7 @@ type PublicClient struct {
 type OperatorClient struct {
 	Admin     *OperatorAdminService
 	ActorKeys *OperatorActorKeysService
+	Envelopes *OperatorEnvelopesService
 	History   *OperatorHistoryService
 	Security  *OperatorSecurityService
 	Templates *OperatorTemplatesService
@@ -36,6 +37,7 @@ type PublicSigningService struct{ c *Client }
 
 type OperatorAdminService struct{ c *Client }
 type OperatorActorKeysService struct{ c *Client }
+type OperatorEnvelopesService struct{ c *Client }
 type OperatorHistoryService struct{ c *Client }
 type OperatorSecurityService struct{ c *Client }
 type OperatorTemplatesService struct{ c *Client }
@@ -57,6 +59,7 @@ func newOperatorClient(c *Client) *OperatorClient {
 	return &OperatorClient{
 		Admin:     &OperatorAdminService{c: c},
 		ActorKeys: &OperatorActorKeysService{c: c},
+		Envelopes: &OperatorEnvelopesService{c: c},
 		History:   &OperatorHistoryService{c: c},
 		Security:  &OperatorSecurityService{c: c},
 		Templates: &OperatorTemplatesService{c: c},
@@ -259,6 +262,61 @@ func (s *OperatorAdminService) SuspendMembership(ctx context.Context, orgID, use
 
 func (s *OperatorAdminService) ReactivateMembership(ctx context.Context, orgID, userID string, opts ...RequestOption) (*Result[JSONMap], error) {
 	return s.c.request(ctx, requestSpec{Method: http.MethodPost, Path: "/operator/v1/memberships/" + urlEscape(orgID) + "/" + urlEscape(userID) + ":reactivate", Auth: AuthModeSession, Idempotent: true, Retryable: true}, nil, nil, opts...)
+}
+
+// Operator envelopes (active read model)
+
+func (s *OperatorEnvelopesService) List(ctx context.Context, query EnvelopeListQuery, opts ...RequestOption) (*Result[JSONMap], error) {
+	q := map[string]string{}
+	if strings.TrimSpace(query.ProjectID) != "" {
+		q["project_id"] = query.ProjectID
+	}
+	if strings.TrimSpace(query.ActorID) != "" {
+		q["actor_id"] = query.ActorID
+	}
+	if strings.TrimSpace(query.TemplateID) != "" {
+		q["template_id"] = query.TemplateID
+	}
+	if strings.TrimSpace(query.State) != "" {
+		q["state"] = query.State
+	}
+	if strings.TrimSpace(query.Status) != "" {
+		q["status"] = query.Status
+	}
+	if strings.TrimSpace(query.UpdatedFrom) != "" {
+		q["updated_from"] = query.UpdatedFrom
+	}
+	if strings.TrimSpace(query.UpdatedTo) != "" {
+		q["updated_to"] = query.UpdatedTo
+	}
+	if query.IncludeTerminal != nil {
+		if *query.IncludeTerminal {
+			q["include_terminal"] = "true"
+		} else {
+			q["include_terminal"] = "false"
+		}
+	}
+	if strings.TrimSpace(query.SortBy) != "" {
+		q["sort_by"] = query.SortBy
+	}
+	if strings.TrimSpace(query.SortOrder) != "" {
+		q["sort_order"] = query.SortOrder
+	}
+	if query.PageSize > 0 {
+		q["page_size"] = itoa(query.PageSize)
+	}
+	if strings.TrimSpace(query.PageToken) != "" {
+		q["page_token"] = query.PageToken
+	}
+	return s.c.request(ctx, requestSpec{Method: http.MethodGet, Path: "/operator/v1/envelopes", Auth: AuthModeSession, Retryable: true}, q, nil, opts...)
+}
+
+func (s *OperatorEnvelopesService) Get(ctx context.Context, contractID string, opts ...RequestOption) (*Result[JSONMap], error) {
+	return s.c.request(ctx, requestSpec{Method: http.MethodGet, Path: "/operator/v1/envelopes/" + urlEscape(contractID), Auth: AuthModeSession, Retryable: true}, nil, nil, opts...)
+}
+
+func (s *OperatorEnvelopesService) GetByEnvelopeID(ctx context.Context, envelopeID string, opts ...RequestOption) (*Result[JSONMap], error) {
+	return s.c.request(ctx, requestSpec{Method: http.MethodGet, Path: "/operator/v1/envelopes/by-envelope/" + urlEscape(envelopeID), Auth: AuthModeSession, Retryable: true}, nil, nil, opts...)
 }
 
 // Operator history

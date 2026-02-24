@@ -88,6 +88,23 @@ _, _ = client.Operator.ActorKeys.List(ctx, "act_123")
 _, _ = client.Operator.Admin.ListActorsCompat(ctx, "prj_123")
 ```
 
+### 6) Active envelopes
+```go
+includeTerminal := false
+_, _ = client.Operator.Envelopes.List(ctx, operatorsdk.EnvelopeListQuery{
+    IncludeTerminal: &includeTerminal, // active only
+    PageSize:        20,
+})
+includeAll := true
+_, _ = client.Operator.Envelopes.List(ctx, operatorsdk.EnvelopeListQuery{
+    IncludeTerminal: &includeAll, // active + terminal
+    SortBy:          "updated_at",
+    SortOrder:       "desc",
+})
+_, _ = client.Operator.Envelopes.Get(ctx, "ctr_123")
+_, _ = client.Operator.Envelopes.GetByEnvelopeID(ctx, "env_123")
+```
+
 ## Notes
 - Mutating operator/public endpoints auto-inject `Idempotency-Key`.
 - `request_id` is in `result.Meta.RequestID`.
@@ -95,6 +112,8 @@ _, _ = client.Operator.Admin.ListActorsCompat(ctx, "prj_123")
 - Failures return `*APIError` with status/code/message/request_id/meta/raw_body.
 - Template enable accepts optional `enabled_by_actor_id`; if provided it must be an active actor id in the project.
 - `Operator.History.Get(envelopeID)` normalizes missing history records to a pending shape.
+- `Operator.Envelopes.*` reads active lifecycle index state (in-flight + optional terminal).
+- `Operator.History.*` remains finalized/indexed audit feed.
 - Prefer `Gateway.CEL.SetCounterparty()` over deprecated plural/staged compatibility wrapper `SetCounterparties()`.
 
 See `SDK_BEHAVIOR_MATRIX.md` for canonical/deprecated method parity and backend-behavior notes.

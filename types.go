@@ -61,6 +61,10 @@ type KnownErrorCode string
 
 const (
 	ErrTemplateNotEnabledForProject KnownErrorCode = "TEMPLATE_NOT_ENABLED_FOR_PROJECT"
+	ErrEnvelopeNotFound             KnownErrorCode = "ENVELOPE_NOT_FOUND"
+	ErrBadPageToken                 KnownErrorCode = "BAD_PAGE_TOKEN"
+	ErrBadSortField                 KnownErrorCode = "BAD_SORT_FIELD"
+	ErrForbidden                    KnownErrorCode = "FORBIDDEN"
 	ErrBadJSON                      KnownErrorCode = "BAD_JSON"
 	ErrUpstreamError                KnownErrorCode = "UPSTREAM_ERROR"
 	ErrNotFound                     KnownErrorCode = "NOT_FOUND"
@@ -290,6 +294,21 @@ type HistoryListQuery struct {
 	SortOrder     string
 	PageSize      int
 	PageToken     string
+}
+
+type EnvelopeListQuery struct {
+	ProjectID       string
+	ActorID         string
+	TemplateID      string
+	State           string
+	Status          string
+	UpdatedFrom     string
+	UpdatedTo       string
+	IncludeTerminal *bool
+	SortBy          string
+	SortOrder       string
+	PageSize        int
+	PageToken       string
 }
 
 type HistoryShareTokenCreateRequest struct {
